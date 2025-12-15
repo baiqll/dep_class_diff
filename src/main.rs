@@ -728,10 +728,7 @@ fn print_grouped_classes(classes: &[String], prefix: &str, full: bool) {
                 .push(class_name.to_string());
         } else {
             // Fallback: no clear module separation
-            groups
-                .entry(String::new())
-                .or_default()
-                .push(class.clone());
+            groups.entry(String::new()).or_default().push(class.clone());
         }
     }
 
