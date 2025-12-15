@@ -42,7 +42,7 @@ esac
 echo -e "${YELLOW}Detected platform: $OS-$ARCH (target: $TARGET)${NC}"
 
 # Get latest release
-REPO="YOUR_GITHUB_USERNAME/dep_class_diff"
+REPO="baiqll/dep_class_diff"
 LATEST_RELEASE=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
 if [ -z "$LATEST_RELEASE" ]; then

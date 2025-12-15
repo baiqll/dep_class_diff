@@ -11,7 +11,7 @@ use std::time::Duration;
 #[derive(Parser)]
 #[command(about = "Compare class files between versions")]
 struct Args {
-    /// Artifact (Maven: org.example/my-lib, GitHub: owner/repo)
+    /// Artifact (Maven: org.example/my-lib, GitHub: owner/repo, or full Maven repo URL)
     artifact: String,
 
     /// Start version (optional)
@@ -19,6 +19,10 @@ struct Args {
 
     /// End version (optional)
     to: Option<String>,
+
+    /// Custom Maven repository URL (default: Maven Central)
+    #[arg(short = 'r', long)]
+    repo: Option<String>,
 
     /// Verbose
     #[arg(short, long)]
@@ -33,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     // Parse artifact format
-    let (group_id, artifact_id, is_github) = parse_artifact(&args.artifact);
+    let (group_id, artifact_id, is_github, custom_repo) = parse_artifact(&args.artifact);
 
     if is_github {
         return analyze_github(
@@ -53,7 +57,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .build(),
     );
 
-    let repo_url = "https://repo1.maven.org/maven2";
+    // Use custom repo from URL, command line arg, or default to Maven Central
+    let repo_url = custom_repo
+        .as_deref()
+        .or(args.repo.as_deref())
+        .unwrap_or("https://repo1.maven.org/maven2");
+
+    if args.verbose && repo_url != "https://repo1.maven.org/maven2" {
+        println!("Using custom repository: {}", repo_url);
+    }
+
     let local_repo = local_m2_repo()?;
 
     // Fetch versions
@@ -193,7 +206,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn parse_artifact(artifact: &str) -> (String, String, bool) {
+fn parse_artifact(artifact: &str) -> (String, String, bool, Option<String>) {
     // Maven Central Search: https://central.sonatype.com/artifact/org.jeecgframework.boot/jeecg-boot-starter
     if artifact.starts_with("https://central.sonatype.com/artifact/") {
         let path = artifact
@@ -202,7 +215,50 @@ fn parse_artifact(artifact: &str) -> (String, String, bool) {
 
         let parts: Vec<&str> = path.split('/').collect();
         if parts.len() >= 2 {
-            return (parts[0].to_string(), parts[1].to_string(), false);
+            return (parts[0].to_string(), parts[1].to_string(), false, None);
+        }
+    }
+
+    // Custom Maven Repository URL: https://maven.jeecg.org/nexus/content/repositories/jeecg/com/jimureport/spring-boot-starter-jimureport/
+    // Pattern: https://[domain]/[path]/[group_id_as_path]/[artifact_id]/
+    if (artifact.starts_with("https://") || artifact.starts_with("http://"))
+        && !artifact.contains("github.com")
+        && !artifact.contains("central.sonatype.com")
+        && artifact.contains('/')
+    {
+        let url = artifact.trim_end_matches('/');
+
+        // Try to extract repo base URL and artifact path
+        // Split by '/' and find where the group/artifact path starts
+        let parts: Vec<&str> = url.split('/').collect();
+
+        // Look for patterns like com/example/artifact or org/example/artifact
+        // These typically start after the repository base path
+        if parts.len() >= 5 {
+            // Find the artifact_id (last part)
+            let artifact_id = parts[parts.len() - 1];
+
+            // Find where the group path starts (look for common patterns)
+            let mut group_start_idx = None;
+            for (i, part) in parts.iter().enumerate() {
+                if i >= 3
+                    && (part.starts_with("com")
+                        || part.starts_with("org")
+                        || part.starts_with("io")
+                        || part.starts_with("net"))
+                {
+                    group_start_idx = Some(i);
+                    break;
+                }
+            }
+
+            if let Some(start_idx) = group_start_idx {
+                let group_parts = &parts[start_idx..parts.len() - 1];
+                let group_id = group_parts.join(".");
+                let repo_base = parts[..start_idx].join("/");
+
+                return (group_id, artifact_id.to_string(), false, Some(repo_base));
+            }
         }
     }
 
@@ -220,7 +276,7 @@ fn parse_artifact(artifact: &str) -> (String, String, bool) {
             let artifact_id = parts[parts.len() - 1];
             let group_parts = &parts[..parts.len() - 1];
             let group_id = group_parts.join(".");
-            return (group_id, artifact_id.to_string(), false);
+            return (group_id, artifact_id.to_string(), false, None);
         }
     }
 
@@ -233,7 +289,7 @@ fn parse_artifact(artifact: &str) -> (String, String, bool) {
 
         let parts: Vec<&str> = path.split('/').collect();
         if parts.len() >= 2 {
-            return (parts[0].to_string(), parts[1].to_string(), true);
+            return (parts[0].to_string(), parts[1].to_string(), true, None);
         }
     }
 
@@ -241,7 +297,7 @@ fn parse_artifact(artifact: &str) -> (String, String, bool) {
     if artifact.contains('/') && !artifact.contains('.') {
         let parts: Vec<&str> = artifact.split('/').collect();
         if parts.len() == 2 {
-            return (parts[0].to_string(), parts[1].to_string(), true);
+            return (parts[0].to_string(), parts[1].to_string(), true, None);
         }
     }
 
@@ -249,10 +305,10 @@ fn parse_artifact(artifact: &str) -> (String, String, bool) {
     let sep = if artifact.contains(':') { ':' } else { '/' };
     let parts: Vec<&str> = artifact.split(sep).collect();
     if parts.len() >= 2 {
-        return (parts[0].to_string(), parts[1].to_string(), false);
+        return (parts[0].to_string(), parts[1].to_string(), false, None);
     }
 
-    (artifact.to_string(), artifact.to_string(), false)
+    (artifact.to_string(), artifact.to_string(), false, None)
 }
 
 fn fetch_versions(

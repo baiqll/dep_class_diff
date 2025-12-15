@@ -46,7 +46,13 @@ dep_class_diff https://central.sonatype.com/artifact/commons-io/commons-io
 # 方式 3: Maven 仓库 URL
 dep_class_diff https://repo1.maven.org/maven2/commons-io/commons-io/
 
-# 方式 4: GitHub URL
+# 方式 4: 自定义 Maven 仓库 URL（直接粘贴完整路径）
+dep_class_diff https://maven.jeecg.org/nexus/content/repositories/jeecg/com/jimureport/spring-boot-starter-jimureport/
+
+# 方式 5: 使用 -r 参数指定自定义仓库
+dep_class_diff com.jimureport/spring-boot-starter-jimureport -r https://maven.jeecg.org/nexus/content/repositories/jeecg
+
+# 方式 6: GitHub URL
 dep_class_diff https://github.com/apache/commons-io
 
 
@@ -66,8 +72,10 @@ dep_class_diff https://github.com/apache/commons-io rel/commons-io-2.11.0 rel/co
 ## 说明
 
 - **智能对比**：自动跳过无变化的版本，只显示有差异的对比
-- **支持 Maven Central 和 GitHub**
+- **支持 Maven Central、自定义 Maven 仓库和 GitHub**
+- **自定义仓库**：支持任何公开的 Maven 仓库（如企业私服、Nexus、Artifactory 等）
 - 使用 `-v` 查看可用版本数量
+- 使用 `-r` 指定自定义 Maven 仓库 URL
 - 使用 `--full` 或 `-f` 显示全部内容（默认 MODIFIED 只显示数量，不显示详细列表）
 - **POM 项目自动处理**：如果是 POM-only 项目，会自动列出所有子模块供选择
 
@@ -99,7 +107,8 @@ dep_class_diff apache/commons-io rel/commons-io-2.11.0 rel/commons-io-2.16.0
 
 ## 不支持的功能
 
-- ❌ 私有仓库（Maven 和 GitHub 都不支持）
+- ❌ 需要认证的私有仓库（Maven 和 GitHub 都不支持）
+- ✅ 公开的自定义 Maven 仓库已支持
 
 ## 输出示例
 
