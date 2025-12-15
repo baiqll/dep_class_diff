@@ -62,7 +62,7 @@ echo -e "${YELLOW}Downloading from: $DOWNLOAD_URL${NC}"
 TMP_DIR=$(mktemp -d)
 cd "$TMP_DIR"
 
-if ! curl -L -o dep_class_diff "$DOWNLOAD_URL"; then
+if ! curl -fsSL -o dep_class_diff "$DOWNLOAD_URL"; then
     echo -e "${RED}Failed to download binary${NC}"
     exit 1
 fi
