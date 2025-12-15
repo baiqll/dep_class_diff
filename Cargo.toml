@@ -8,6 +8,10 @@ edition = "2021"
 # 使用 native-tls 而不是 rustls，避免 ring 依赖导致的交叉编译问题
 ureq = { version = "2.12", features = ["native-tls"], default-features = false }
 
+# OpenSSL (native-tls 的依赖)
+# 使用 vendored 特性在交叉编译时自动编译 OpenSSL
+openssl = { version = "0.10", features = ["vendored"], optional = true }
+
 # 解析 maven-metadata.xml：轻量快速
 quick-xml = { version = "0.37", default-features = false }
 
@@ -28,6 +32,7 @@ serde_json = { version = "1.0", optional = true }
 default = ["pattern-matching", "github"]
 pattern-matching = ["regex"]
 github = ["serde", "serde_json"]
+vendored-openssl = ["openssl"]
 
 [profile.release]
 # 进一步缩小体积
