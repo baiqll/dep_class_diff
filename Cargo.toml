@@ -5,7 +5,8 @@ edition = "2021"
 
 [dependencies]
 # HTTP：比 reqwest 轻量，二进制通常更小
-ureq = { version = "2.12", features = ["tls"], default-features = false }
+# 使用 native-tls 而不是 rustls，避免 ring 依赖导致的交叉编译问题
+ureq = { version = "2.12", features = ["native-tls"], default-features = false }
 
 # 解析 maven-metadata.xml：轻量快速
 quick-xml = { version = "0.37", default-features = false }
