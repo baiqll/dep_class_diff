@@ -152,8 +152,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Compare
-        let idx1 = index_jar(&jar1.unwrap())?;
-        let idx2 = index_jar(&jar2.unwrap())?;
+        let idx1 = match index_jar(&jar1.unwrap()) {
+            Ok(idx) => idx,
+            Err(e) => {
+                if args.verbose {
+                    eprintln!("Warning: {}", e);
+                }
+                continue;
+            }
+        };
+        let idx2 = match index_jar(&jar2.unwrap()) {
+            Ok(idx) => idx,
+            Err(e) => {
+                if args.verbose {
+                    eprintln!("Warning: {}", e);
+                }
+                continue;
+            }
+        };
 
         let (added, removed, modified) = diff(&idx1, &idx2);
 
@@ -441,18 +457,54 @@ fn download_jar(
     let resp = agent.get(&url).call();
     match resp {
         Ok(resp) if resp.status() == 200 => {
+            // Check Content-Type to ensure it's a JAR file
+            let content_type = resp.header("Content-Type").unwrap_or("").to_string();
+
             let mut reader = resp.into_reader();
-            let mut f = fs::File::create(&jar)?;
-            io::copy(&mut reader, &mut f)?;
+            let mut buffer = Vec::new();
+            io::copy(&mut reader, &mut buffer)?;
+
+            // Check if it's actually a ZIP/JAR file (starts with PK signature)
+            if buffer.len() < 4 || &buffer[0..2] != b"PK" {
+                if verbose {
+                    eprintln!(
+                        "Warning: Downloaded file for {} is not a valid JAR (Content-Type: {})",
+                        version, content_type
+                    );
+                    if buffer.len() < 200 {
+                        eprintln!("Content preview: {}", String::from_utf8_lossy(&buffer));
+                    }
+                }
+                return Ok(None);
+            }
+
+            fs::write(&jar, buffer)?;
             Ok(Some(jar))
         }
-        _ => Ok(None),
+        Ok(resp) => {
+            if verbose {
+                eprintln!("Warning: HTTP {} for {}", resp.status(), version);
+            }
+            Ok(None)
+        }
+        Err(e) => {
+            if verbose {
+                eprintln!("Warning: Failed to download {}: {}", version, e);
+            }
+            Ok(None)
+        }
     }
 }
 
 fn index_jar(jar_path: &Path) -> Result<HashMap<String, u64>, Box<dyn std::error::Error>> {
     let f = fs::File::open(jar_path)?;
-    let mut archive = zip::ZipArchive::new(f)?;
+    let mut archive = zip::ZipArchive::new(f).map_err(|e| {
+        format!(
+            "Failed to read JAR file {:?}: {}. The file may be corrupted or not a valid JAR.",
+            jar_path.file_name().unwrap_or_default(),
+            e
+        )
+    })?;
     let mut index = HashMap::new();
 
     for i in 0..archive.len() {
