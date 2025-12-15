@@ -5,8 +5,12 @@ edition = "2021"
 
 [dependencies]
 # HTTP：比 reqwest 轻量，二进制通常更小
-# 使用 native-tls 而不是 rustls，避免 ring 依赖导致的交叉编译问题
-ureq = { version = "2.12", features = ["native-tls"], default-features = false }
+ureq = { version = "2.12", default-features = false }
+
+# TLS 后端：默认使用 rustls，交叉编译时使用 native-tls + vendored OpenSSL
+native-tls = { version = "0.2", optional = true }
+rustls = { version = "0.23", features = ["ring"], default-features = false, optional = true }
+rustls-platform-verifier = { version = "0.5", optional = true }
 
 # OpenSSL (native-tls 的依赖)
 # 使用 vendored 特性在交叉编译时自动编译 OpenSSL
@@ -29,10 +33,12 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
 
 [features]
-default = ["pattern-matching", "github"]
+default = ["pattern-matching", "github", "tls-rustls"]
 pattern-matching = ["regex"]
 github = ["serde", "serde_json"]
-vendored-openssl = ["openssl"]
+tls-rustls = ["ureq/tls", "rustls", "rustls-platform-verifier"]
+tls-native = ["ureq/native-tls", "native-tls"]
+vendored-openssl = ["tls-native", "openssl"]
 
 [profile.release]
 # 进一步缩小体积
